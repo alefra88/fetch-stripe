@@ -1,3 +1,4 @@
+import stripeKeys from "./stripe-keys.js";
 import STRIPE_KEYS from "./stripe-keys.js";
 
 const d = document,
@@ -10,6 +11,7 @@ const d = document,
     },
   };
 let products, prices;
+const moneyFormat = (num) => `$${num.slice(0, -2)}.${num.slice(-2)}`;
 Promise.all([
   fetch("https://api.stripe.com/v1/products", fetchOptions),
   fetch("https://api.stripe.com/v1/prices", fetchOptions),
@@ -30,10 +32,12 @@ Promise.all([
       $template.querySelector("img").alt = productData[0].name;
       $template.querySelector("figcaption").innerHTML = `${productData[0].name}
       <br>
-      ${el.unit_amount_decimal} ${el.currency }`;
+      ${moneyFormat(el.unit_amount_decimal)} ${el.currency}`;
+
       let $clone = d.importNode($template, true);
       $fragment.appendChild($clone);
     });
+
     $productos.appendChild($fragment);
   })
   .catch((err) => {
@@ -42,3 +46,24 @@ Promise.all([
       err.statusText || "Ocurrió un error al conectarse a la API de stripe";
     $productos.innerHTML = `<p> Error ${err.status}:${message}</p>`;
   });
+
+d.addEventListener("click", (e) => {
+  console.log(e.target);
+  if (e.target.matches(".producto *")) {
+    let price = e.target.parentElement.getAttribute("data-price");
+    // console.log(price);
+    Stripe(STRIPE_KEYS.public)
+      .redirectToCheckout({
+        lineItems: [{ price, quantity: 1 }],
+        mode: "subscription",
+        successUrl: "http://127.0.0.1:5500/stripe-success.html",
+        cancelUrl: "http://127.0.0.1:5500/stripe-success.html",
+      })
+      .then((res) => {
+        console.log(res);
+        if (res.err) {
+          $productos.insertAdjacentHTML("afterend", res.error.message);
+        }
+      });
+  }
+});
